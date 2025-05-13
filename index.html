@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>GTA Online Weekly Update</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #0e0e0e;
+      color: #f5f5f5;
+      padding: 20px;
+    }
+    h1 {
+      color: #00d26a;
+    }
+    .post {
+      background: #1a1a1a;
+      border: 1px solid #333;
+      padding: 15px;
+      margin-top: 10px;
+      border-radius: 5px;
+    }
+    a {
+      color: #1e90ff;
+    }
+  </style>
+</head>
+<body>
+  <h1>GTA Online Weekly Update</h1>
+  <div id="content">Loading...</div>
+
+  <script>
+    async function fetchWeeklyPost() {
+      const proxy = 'https://api.allorigins.win/get?url=';
+      const rssUrl = encodeURIComponent('https://www.reddit.com/r/gtaonline/.rss');
+      const feedUrl = proxy + rssUrl;
+  
+      try {
+        const res = await fetch(feedUrl);
+        const data = await res.json();
+  
+        // Decode base64 Atom feed
+        const base64Content = data.contents.split(';base64,')[1];
+        const decodedContent = atob(base64Content);
+  
+        // Parse Atom XML
+        const parser = new DOMParser();
+        const xml = parser.parseFromString(decodedContent, 'application/xml');
+  
+        const items = xml.querySelectorAll('entry');
+        const weeklyPost = Array.from(items).find(item =>
+          item.querySelector('title')?.textContent.toLowerCase().includes('weekly update')
+        );
+  
+        const container = document.getElementById('content');
+  
+        if (weeklyPost) {
+          const title = weeklyPost.querySelector('title').textContent;
+          const link = weeklyPost.querySelector('link').getAttribute('href');
+          const content = weeklyPost.querySelector('content')?.textContent || '';
+  
+          container.innerHTML = `
+            <div class="post">
+              <h2><a href="${link}" target="_blank">${title}</a></h2>
+              <div>${content}</div>
+            </div>
+          `;
+        } else {
+          container.innerHTML = 'No weekly update found.';
+        }
+      } catch (error) {
+        document.getElementById('content').innerHTML = 'Failed to load updates.';
+        console.error('Error fetching RSS:', error);
+      }
+    }
+  
+    fetchWeeklyPost();
+  </script>
+</body>
+</html>
