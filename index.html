@@ -3,79 +3,167 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="description" content="Live weekly GTA Online update info including podium cars, discounts, bonuses, and more." />
+  <meta property="og:title" content="GTA Online Weekly Update" />
+  <meta property="og:description" content="Live GTA Online updates powered by the RDO API." />
+  <meta property="og:type" content="website" />
+  <link rel="icon" href="https://www.rockstargames.com/favicon.ico" />
   <title>GTA Online Weekly Update</title>
   <style>
+    :root {
+      --bg-color: #121212;
+      --section-bg: #1e1e1e;
+      --text-color: #f0f0f0;
+      --header-color: #00d26a;
+      --link-color: #1e90ff;
+    }
+
     body {
+      background-color: var(--bg-color);
+      color: var(--text-color);
       font-family: Arial, sans-serif;
-      background: #0e0e0e;
-      color: #f5f5f5;
+      margin: 0;
       padding: 20px;
     }
-    h1 {
-      color: #00d26a;
+
+    h1, h2 {
+      color: var(--header-color);
     }
-    .post {
-      background: #1a1a1a;
-      border: 1px solid #333;
-      padding: 15px;
-      margin-top: 10px;
-      border-radius: 5px;
-    }
+
     a {
-      color: #1e90ff;
+      color: var(--link-color);
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    .section {
+      background-color: var(--section-bg);
+      margin-top: 20px;
+      padding: 15px;
+      border-radius: 8px;
+    }
+
+    ul {
+      padding-left: 20px;
+    }
+
+    li {
+      margin: 5px 0;
+    }
+
+    #loading-spinner {
+      margin: 20px 0;
+      font-style: italic;
+      opacity: 0.7;
+    }
+
+    @media (max-width: 600px) {
+      body {
+        padding: 10px;
+      }
     }
   </style>
 </head>
 <body>
-  <h1>GTA Online Weekly Update</h1>
-  <div id="content">Loading...</div>
+  <main>
+    <h1>GTA Online Weekly Update</h1>
+    <p id="week-range" aria-live="polite">Loading week information...</p>
+    <div id="loading-spinner">Loading content, please wait...</div>
+    <div id="content" aria-busy="true"></div>
+  </main>
 
   <script>
-    async function fetchWeeklyPost() {
-      const proxy = 'https://api.allorigins.win/get?url=';
-      const rssUrl = encodeURIComponent('https://www.reddit.com/r/gtaonline/.rss');
-      const feedUrl = proxy + rssUrl;
-  
+    async function fetchGTAWeekly() {
+      const url = 'https://api.rdo.gg/tunables/gta/pcros/index.json';
+
       try {
-        const res = await fetch(feedUrl);
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+
         const data = await res.json();
-  
-        // Decode base64 Atom feed
-        const base64Content = data.contents.split(';base64,')[1];
-        const decodedContent = atob(base64Content);
-  
-        // Parse Atom XML
-        const parser = new DOMParser();
-        const xml = parser.parseFromString(decodedContent, 'application/xml');
-  
-        const items = xml.querySelectorAll('entry');
-        const weeklyPost = Array.from(items).find(item =>
-          item.querySelector('title')?.textContent.toLowerCase().includes('weekly update')
-        );
-  
         const container = document.getElementById('content');
-  
-        if (weeklyPost) {
-          const title = weeklyPost.querySelector('title').textContent;
-          const link = weeklyPost.querySelector('link').getAttribute('href');
-          const content = weeklyPost.querySelector('content')?.textContent || '';
-  
-          container.innerHTML = `
-            <div class="post">
-              <h2><a href="${link}" target="_blank">${title}</a></h2>
-              <div>${content}</div>
-            </div>
-          `;
-        } else {
-          container.innerHTML = 'No weekly update found.';
+        const weekRange = document.getElementById('week-range');
+        const spinner = document.getElementById('loading-spinner');
+
+        const week = data.week || 'Unknown Week';
+        const range = data.dateRange || 'Date not available';
+        weekRange.textContent = `Week: ${week} (${range})`;
+
+        const sections = {
+          'Podium Vehicle': data.podiumVehicles,
+          'Prize Ride': data.prizeRide,
+          'Test Rides': data.testRides,
+          'Luxury Autos': data.luxuryAutos,
+          'Simeon Cars': data.simeonCars,
+          'Bonuses': data.bonuses,
+          'Discounts': data.discounts,
+          'Time Trials': data.timeTrials,
+          'RC Bandito Trials': data.rcTimeTrials,
+          'Community Series': data.communitySeries
+        };
+
+        container.innerHTML = '';
+        container.removeAttribute('aria-busy');
+        spinner.style.display = 'none';
+
+        for (const [section, items] of Object.entries(sections)) {
+          if (!items || (Array.isArray(items) && items.length === 0)) continue;
+
+          const div = document.createElement('div');
+          div.className = 'section';
+          const h2 = document.createElement('h2');
+          h2.textContent = section;
+          div.appendChild(h2);
+
+          const ul = document.createElement('ul');
+
+          try {
+            if (Array.isArray(items)) {
+              items.forEach(item => {
+                const li = document.createElement('li');
+                if (section === 'Bonuses' && item.name && item.multiplier) {
+                  li.textContent = `${item.name} (x${item.multiplier})`;
+                } else if (section === 'Discounts' && item.name && item.discount) {
+                  li.textContent = `${item.name} - ${item.discount}% off`;
+                } else {
+                  li.textContent = item.name || item;
+                }
+                ul.appendChild(li);
+              });
+            } else if (typeof items === 'object') {
+              for (const [key, value] of Object.entries(items)) {
+                const li = document.createElement('li');
+                li.textContent = `${key}: ${value}`;
+                ul.appendChild(li);
+              }
+            } else {
+              const li = document.createElement('li');
+              li.textContent = items;
+              ul.appendChild(li);
+            }
+          } catch (sectionError) {
+            const errMsg = document.createElement('li');
+            errMsg.textContent = 'Error loading this section.';
+            ul.appendChild(errMsg);
+          }
+
+          div.appendChild(ul);
+          container.appendChild(div);
         }
-      } catch (error) {
-        document.getElementById('content').innerHTML = 'Failed to load updates.';
-        console.error('Error fetching RSS:', error);
+      } catch (err) {
+        console.error('Failed to load weekly update:', err);
+        document.getElementById('week-range').textContent = 'Could not fetch update.';
+        document.getElementById('loading-spinner').style.display = 'none';
+        const container = document.getElementById('content');
+        container.innerHTML = '<p>Failed to load data. Please try again later.</p>';
+        container.removeAttribute('aria-busy');
       }
     }
-  
-    fetchWeeklyPost();
+
+    document.addEventListener('DOMContentLoaded', fetchGTAWeekly);
   </script>
 </body>
 </html>
